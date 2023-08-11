@@ -1,0 +1,43 @@
+---
+description: "servicenow_get_and_close_change_tasks"
+enabled: true
+runner_type: "python-script"
+entry_point: servicenow_get_and_close_change_tasks.py
+name: ServiceNowGetAndCloseChangeTasks
+pack: ntt_itsm
+parameters:
+  number:
+    type: string
+    description: "enter the change number to get its change tasks"
+    required: true
+  assignment_group:
+    type: string
+    description: "The assignment group to which the Ctask is assinged"
+    required: true
+  assigned_to:
+    type: string
+    description: "assigned to user should be part of assignment group"
+    required: true
+  performance_rating:
+    type: integer
+    description: "enter the performance rating"
+    required: true
+  company:
+    type: string
+    description: "The company name"
+    required: true
+    default: "Graphic Packaging"
+  worknotes:
+    type: string
+    description: "worknotes"
+    required: true
+    default: "Closing the CTASK"
+  u_test_results:
+    type: string
+    description: "worknotes"
+    required: true
+    default: "Successful"
+  chg_id:
+    type: string
+    description: "enter the change number sys_id"
+    required: true

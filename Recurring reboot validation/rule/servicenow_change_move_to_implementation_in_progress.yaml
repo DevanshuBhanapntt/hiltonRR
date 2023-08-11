@@ -1,0 +1,16 @@
+---
+  name: 'recurring_server_reboot_change_move_to_implementation_in_progress'
+  pack: 'ntt_itsm'
+  description: 'Rule for recurring server reboot change move to implementation progress'
+  enabled: true
+
+  trigger:
+    type: "ntt_itsm.servicenow_change_move_to_implementation_in_progress"
+    parameters: {}
+
+
+  action:
+    ref: 'ntt_itsm.servicenow_change_move_to_implementation_in_progress_workflow'
+    parameters:
+      number: "{{ trigger.number }}"
+      chg_id: "{{ trigger.chg_id }}"

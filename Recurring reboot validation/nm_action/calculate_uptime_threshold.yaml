@@ -1,0 +1,23 @@
+---
+name: "calculate_uptime_threshold"
+pack: "ntt_monitoring"
+description: "To check the uptime of remote linux machine"
+runner_type: "python-script"
+entry_point:  calculate_uptime_threshold.py
+enabled: true
+parameters:
+  planned_start_date:
+    type: string
+    description: "ITSM incident number"
+    required: true
+    default: '2022-08-20T00:00:00+123'
+  uptime:
+    type: string
+    description: "ITSM incident number"
+    required: true
+    default: 10000
+  os_flag:
+    type: integer
+    description: "os flag indicates 1 is for windows and 0 is for linux"
+    required: true
+    default: 0

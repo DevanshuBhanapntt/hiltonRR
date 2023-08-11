@@ -1,0 +1,9 @@
+{
+  "description": "Powershell script to get uptime of windows serves",
+  "implementations": 
+   [
+ 	{	
+	"name": "win_uptime.ps1"
+   	}
+   ]
+}

@@ -1,0 +1,60 @@
+---
+# We moved this to a Python action for performance improvements
+version: 1.0
+
+description: "Move the change to Implementation in Progress and remove it from KV Pair"
+
+input:
+  - chg_id
+  - number
+
+
+vars:
+  - error_message: ""
+
+output:
+  - error_message: "{{ ctx().error_message }}"
+
+tasks:
+  config_vars_get:
+    action: ntt_itsm.config_vars_get
+    next:
+      - when: "{{ succeeded() and result().result['itsm_tool'] == 'servicenow' }}"
+        do:
+          - implementation_in_progress
+      - when: "{{ succeeded() and result().result['itsm_tool'] == 'helix' }}"
+        do:
+          - noop
+      - when: "{{ failed() }}"
+        publish:
+          - error_message: "Could not get ITSM info please check the config file and try again"
+        do:
+          - fail
+
+  implementation_in_progress:
+    action: ntt_itsm.servicenow_change_move_to_implementation_in_progress
+    input:
+      chg_id: "{{ ctx().chg_id }}"
+    next:
+      - when: "{{ succeeded() }}"
+        do:
+          - remove_change_from_kv_pair
+      - when: "{{ failed() }}"
+        publish:
+          - error_message: "Could not move the change to Implementation in Progress!"
+        do:
+          - fail
+
+  remove_change_from_kv_pair:
+    action: ntt_itsm.itsm_processing_change_remove
+    input:
+      change_id: "{{ ctx().number }}"
+    next:
+      - when: "{{ succeeded() }}"
+        do:
+          - noop
+      - when: "{{ failed() }}"
+        publish:
+          - error_message: "Could not update the kv store with the given change number!"
+        do:
+          - fail

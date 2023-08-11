@@ -1,0 +1,12 @@
+---
+name: "servicenow_change_move_to_implementation_in_progress"
+pack: ntt_itsm
+description: "servicenow_change_move_to_implementation_in_progress"
+runner_type: "python-script"
+entry_point: servicenow_change_move_to_implementation_in_progress.py
+enabled: true
+parameters:
+  chg_id:
+    type: string
+    description: "change number sysid "
+    required: true

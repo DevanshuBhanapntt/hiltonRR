@@ -1,0 +1,19 @@
+---
+  class_name: "servicenow_change_move_to_implementation_in_progress"
+  entry_point: "servicenow_change_move_to_implementation_in_progress_sensor.py"
+  description: "Sensor to find all Changes in Scheduled state and move to Implementation In Progress"
+  poll_interval: 60
+  enabled: true
+  trigger_types:
+    -
+      name: "servicenow_change_move_to_implementation_in_progress"
+      description: "If change request is in scheduled state for recurring_patch_validation"
+      payload_schema:
+        type: 'object'
+        properties:
+          number:
+            type: 'string'
+            format: 'Change number Id'
+          chg_id:
+            type: 'string'
+            format: 'Change number Id'

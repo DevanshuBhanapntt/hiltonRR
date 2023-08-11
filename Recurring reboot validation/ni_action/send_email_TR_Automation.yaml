@@ -1,0 +1,23 @@
+---
+name: "send_email_TR_Automation"
+pack: ntt_itsm
+description: "send_email_TR_Automation"
+runner_type: "python-script"
+entry_point: send_email_TR_Automation.py
+enabled: true
+parameters:
+  receiver_emails:
+    type: string
+    description: "change number to add comments to in ServiceNow"
+    required: true
+    default: "midudhulaaravind.reddy@nttdata.com"
+  message_body:
+    type: string
+    description: "Company in which the usecase is deployed"
+    required: false
+    default: "Hi Team,\n checking the multiline again"
+  subject:
+    type: string
+    description: "change number to add comments to in ServiceNow"
+    required: true
+    default: "TR Automation Reboot Validation Email"

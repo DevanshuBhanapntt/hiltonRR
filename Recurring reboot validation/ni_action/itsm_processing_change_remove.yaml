@@ -1,0 +1,12 @@
+---
+name: itsm_processing_change_remove
+pack: ntt_itsm
+description: "Checks the ITSM type from the config file and removes the given incident from the appropriate kv store variable"
+runner_type: "python-script"
+entry_point: itsm_processing_change_remove.py
+enabled: true
+parameters:
+  change_id:
+    type: string
+    description: "ITSM Change ID to add to the kv store"
+    required: true

@@ -1,0 +1,17 @@
+---
+name: servicenow_change_move_to_implementation_in_progress_workflow
+pack: ntt_itsm
+description: "servicenow_change_move_to_implementation_in_progress_workflow"
+runner_type: orquesta
+entry_point: workflows/servicenow_change_move_to_implementation_in_progress_workflow.yaml
+enabled: true
+parameters:
+  chg_id:
+    type: string
+    description: "change number sysid "
+    required: true
+  number:
+    type: string
+    description: "change number"
+    required: true
+ 

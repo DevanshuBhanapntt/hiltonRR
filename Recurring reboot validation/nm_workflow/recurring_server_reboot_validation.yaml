@@ -1,0 +1,421 @@
+---
+version: 1.0
+description: Workflow to check recurring server reboot validation
+input:
+  - assignment_group
+  - ci_address
+  - os_type
+  - configuration_item_name
+  - configuration_item_env
+  - customer_name
+  - customer_abbr
+  - detailed_desc
+  - change_id
+  - change_sys_id
+  - short_desc
+  - planned_start_date
+  - planned_end_date
+  - dns_domain
+
+vars:
+  - uptime_validate: "False"
+  - uptime_threshold: ""
+  - uptime_validation: ""
+  - winrm_password_key: ""
+  - winrm_port_key: ""
+  - winrm_ssl_key: ""
+  - winrm_username_key: ""
+  - winrm_verify_ssl_key: ""
+  - uptime: ""
+  - run_error: ""
+  - assigned_to: "Integration Approver"
+  - winrm_extranet_password_key: 'system.winrm.extranet_password'
+  - winrm_extranet_username_key: 'system.winrm.extranet_username'
+  - winrm_hotels_password_key: 'system.winrm.hotels_password'
+  - winrm_hotels_username_key: 'system.winrm.hotels_username'
+  - winrm_hq_password_key: 'system.winrm.hq_password'
+  - winrm_hq_username_key: 'system.winrm.hq_username'
+  - winrm_na_password_key: 'system.winrm.na_password'
+  - winrm_na_username_key: 'system.winrm.na_username'
+
+
+
+output:
+  - uptime_validation: "{{ ctx().uptime_validation }}"
+
+tasks:
+  itsm_config_vars_get:
+    action: ntt_itsm.config_vars_get
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - itsm_tool_name: "{{ result().result['itsm_tool'] }}"
+        do:
+          - config_vars_get
+      - when: "{{ failed() }}"
+        publish:
+          - itsm_tool_name: ""
+        do:
+          - noop
+
+  config_vars_get:
+    action: ntt_monitoring.config_vars_get
+    input:
+      customer_abbr: "{{ ctx().customer_abbr }}"
+      workflow_overrides:
+        bolt_winrm_password_key: "{{ ctx().winrm_password_key }}"
+        bolt_winrm_port_key: "{{ ctx().winrm_port_key }}"
+        bolt_winrm_username_key: "{{ ctx().winrm_username_key }}"
+        bolt_winrm_ssl_key: "{{ ctx().winrm_ssl_key }}"
+        bolt_winrm_verify_ssl_key: "{{ ctx().winrm_verify_ssl_key }}"
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - ssh_password: "{{ result().result.connections.ssh_password if 'connections' in result().result and 'ssh_password' in result().result.connections else '' }}"
+          - ssh_username: "{{ result().result.connections.ssh_username if 'connections' in result().result and 'ssh_username' in result().result.connections else '' }}"
+          - ssh_password_key: "{{ result().result.connections.bolt_ssh_password_key if 'connections' in result().result and 'bolt_ssh_password_key' in result().result.connections else '' }}"
+          - ssh_username_key: "{{ result().result.connections.bolt_ssh_username_key if 'connections' in result().result and 'bolt_ssh_username_key' in result().result.connections else '' }}"
+          - ssh_tmp_dir_key: "{{ result().result.connections.bolt_ssh_tmp_dir_key if 'connections' in result().result and 'bolt_ssh_tmp_dir_key' in result().result.connections else '' }}"
+          - winrm_password_key: "{{ result().result.connections.bolt_winrm_password_key if 'connections' in result().result and 'bolt_winrm_password_key' in result().result.connections else '' }}"
+          - winrm_port_key: "{{ result().result.connections.bolt_winrm_port_key if 'connections' in result().result and 'bolt_winrm_port_key' in result().result.connections else '' }}"
+          - winrm_username_key: "{{ result().result.connections.bolt_winrm_username_key if 'connections' in result().result and 'bolt_winrm_username_key' in result().result.connections else '' }}"
+          - winrm_ssl_key: "{{ result().result.connections.bolt_winrm_ssl_key if 'connections' in result().result and 'bolt_winrm_ssl_key' in result().result.connections else '' }}"
+          - winrm_verify_ssl_key: "{{ result().result.connections.bolt_winrm_verify_ssl_key if 'connections' in result().result and 'bolt_winrm_verify_ssl_key' in result().result.connections else '' }}"
+          - start_timestamp: "{{ task('config_vars_get').start_timestamp }}"
+        do:
+          - change_request_worknotes_initial_update
+
+
+  change_request_worknotes_initial_update:
+    action: ntt_itsm.servicenow_change_update
+    input:
+      chg_id: "{{ ctx().change_sys_id }}"
+      worknotes: "Automation has started to check if the server was rebooted per scheduled maintenance.\n Job ID: <% ctx(st2).action_execution_id %>"
+    next:
+      - when: "{{ succeeded() and ctx().os_type == 'windows' }}"
+        publish:
+          - os_flag: 1
+        do:
+          #- uptime_check
+          - decide_creds
+      - when: "{{ succeeded() and ctx().os_type == 'linux' }}"
+        publish:
+          - os_flag: 0
+        do:
+          - uptime_check_linux
+      - when: "{{ failed()}}"
+        publish:
+          - worknotes: "Failed to update servicenow"
+          - performance_rating: 3
+          - run_error: true
+          - end_timestamp: "{{ task('change_request_worknotes_initial_update').end_timestamp }}"
+        do:
+          - insert_db
+
+
+  uptime_check_linux:
+    action: core.remote
+    input:
+      cmd: "cat /proc/uptime"
+      #cmd: "hostname"
+      hosts: "{{ ctx().ci_address }}"
+      password: "{{ ctx().ssh_password }}"
+      username: "{{ ctx().ssh_username }}"
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - uptime: "{{ result().get(ctx().ci_address).stdout }}"
+          #- uptime: "{{ result() }}"
+        do:
+          - calculate_uptime_threshold_and_validate
+      - when: "{{ failed() }}"
+        publish:
+          - worknotes: "Unable to connect to the linux machine for validating Uptime"
+        do:
+          - create_incident_servicenow_for_failed_validation
+
+  calculate_uptime_threshold_and_validate:
+    action: ntt_monitoring.calculate_uptime_threshold
+    input:
+      planned_start_date: "{{ ctx().planned_start_date }}"
+      uptime : "{{ ctx().uptime }}"
+      os_flag: "{{ ctx().os_flag }}"
+    next:
+      - when: "{{ succeeded() and result().result == 1 }}"
+        publish:
+          - uptime_flag: "{{ result().result }}"
+          - uptime_validation: "{{ result().stdout }}"
+          - worknotes: "{{ result().stdout }}"
+        do:
+          - itsm_change_request_worknotes_update_True
+      - when: "{{ succeeded() and result().result == 0 }}"
+        publish:
+          - uptime_flag: "{{ result().result }}"
+          - uptime_validation: "{{ result().stdout }}"
+          - worknotes: "{{ result().stdout }}"
+        do:
+          - create_incident_servicenow_for_failed_validation
+      - when: "{{ failed() }}"
+        publish:
+          - uptime_validation: "unable to calculate the uptime_threshold"
+        do:
+          - insert_db
+
+  decide_creds:
+    action: core.noop
+    next:
+      - when: "{{ succeeded() and ctx().dns_domain in ['hq', 'hrcc', 'hgvc', 'ad', 'hhcpr', 'hq.ad'] }}"
+        publish:
+          - winrm_username_key: "{{ ctx().winrm_hq_username_key }}"
+          - winrm_password_key: "{{ ctx().winrm_hq_password_key }}"
+        do:
+          #- check_incident_state
+          - uptime_check
+      - when: "{{ succeeded() and ctx().dns_domain in ['extranet'] }}"
+        publish:
+          - winrm_username_key: "{{ ctx().winrm_extranet_username_key }}"
+          - winrm_password_key: "{{ ctx().winrm_extranet_password_key }}"
+        do:
+          #- check_incident_state
+          - uptime_check
+      - when: "{{ succeeded() and ctx().dns_domain in ['na'] }}"
+        publish:
+          - winrm_username_key: "{{ ctx().winrm_na_username_key }}"
+          - winrm_password_key: "{{ ctx().winrm_na_password_key }}"
+        do:
+          #- check_incident_state
+          - uptime_check
+      - when: "{{ succeeded() and ctx().dns_domain in ['hotels'] }}"
+        publish:
+          - winrm_username_key: "{{ ctx().winrm_hotels_username_key }}"
+          - winrm_password_key: "{{ ctx().winrm_hotels_password_key }}"
+        do:
+          #- check_incident_state
+          - uptime_check
+      - when: "{{ succeeded() and ctx().dns_domain == '' }}"
+        publish:
+          - winrm_username_key: "{{ ctx().winrm_hq_username_key }}"
+          - winrm_password_key: "{{ ctx().winrm_hq_password_key }}"
+        do:
+          #- check_incident_state
+          - uptime_check
+
+  uptime_check:
+    action: ntt_monitoring.bolt_plan
+    input:
+      server_fqdn: "{{ ctx().ci_address }}"
+      os_type: "{{ ctx().os_type }}"
+      plan: "ntt_monitoring::win_uptime"
+      st2kv_config:
+        ssh.password: "{{ ctx().ssh_password_key }}"
+        ssh.user: "{{ ctx().ssh_username_key }}"
+        winrm.password: "{{ ctx().winrm_password_key }}"
+        winrm.user: "{{ ctx().winrm_username_key }}"
+        winrm.port: "{{ ctx().winrm_port_key }}"
+        winrm.ssl: "{{ ctx().winrm_ssl_key }}"
+        winrm.ssl-verify: "{{ ctx().winrm_verify_ssl_key }}"
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - uptime: "{{ result().output.run.result.output.strip() }}"
+          - uptime_validate: "True"
+          - planned_start_date: "{{ ctx().planned_start_date }}"
+          - os_flag: "{{ ctx().os_flag }}"
+        do:
+          - calculate_uptime_threshold_and_validate
+      - when: "{{ failed() }}"
+        publish:
+          - uptime: "{{ result() }}"
+          - worknotes: "Unable to connect to the windows machine for validating Uptime"
+        do:
+          - create_incident_servicenow_for_failed_validation
+
+  create_incident_servicenow_for_failed_validation:
+    action: ntt_itsm.servicenow_incident_create
+    input:
+      company: "{{ ctx().customer_name }}"
+      requested_by: "Automation service"
+      short_description: "The server {{ ctx().ci_address }} Reboot validation is Failed"
+      cmdb_ci: "{{ ctx().ci_address }}"
+      category: "Performance"
+      subcategory: "Limited - Slow"
+      assignment_group: "INTEL"
+      impact: "4"
+      description: "uptime {{ ctx().uptime_validation }}"
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - incident_result: "{{ result().result }}"
+          - incident_number: "{{ result().result.Number }}"
+          - worknotes: "{{ ctx().worknotes }} , An Incident {{ result().result.Number }} is created"
+        do:
+          - itsm_change_request_worknotes_update_False
+      - when: "{{ failed() }}"
+        publish:
+          - incident_result: "{{ result().result }}"
+          - incident_number: "{{ result().result.Number }}"
+          - worknotes: "{{ ctx().worknotes }}, An Incident {{ result().result.Number }} is created"
+        do:
+          - itsm_change_request_worknotes_update_False
+
+
+  itsm_change_request_worknotes_update_True:
+    action: ntt_itsm.servicenow_change_update
+    input:
+      #work_in_progress: true
+      chg_id: "{{ ctx().change_sys_id }}"
+      worknotes: "Automation detected the uptime on {{ ctx().ci_address }} to be {{ ctx().uptime_validation }}"
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - performance_rating: 5
+          - worknotes: "The Reboot Validation for change {{ ctx().change_id }} on ci {{ ctx().ci_address }} has completed with the below reason: \n{{ ctx().worknotes }}"
+        do:
+          - get_and_close_change_tasks
+      - when: "{{ failed()}}"
+        publish:
+          - error_message: "Unable to update ITSM change request for {{ ctx().change_sys_id }}"
+        do:
+          - ITSM_change_request_cleanup
+
+  itsm_change_request_worknotes_update_False:
+    action: ntt_itsm.servicenow_change_update
+    input:
+      #work_in_progress: true
+      chg_id: "{{ ctx().change_sys_id }}"
+      worknotes: "Automation detected the uptime on {{ ctx().ci_address }} to be {{ ctx().worknotes }}"
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - worknotes: "{{ ctx().worknotes }}"
+        do:
+          - send_email_for_failed_validation
+      - when: "{{ failed() }}"
+        publish:
+          - worknotes: "{{ ctx().worknotes }}"
+          - performance_rating: 3
+        do:
+          - get_and_close_change_tasks
+
+  ITSM_change_request_cleanup:
+    action: ntt_itsm.servicenow_change_update
+    input:
+      chg_id: "{{ ctx().change_sys_id }}"
+      worknotes: "The validation is not successful due to unexpected failure hence Mail sent to Automation team for further analysis"
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - worknotes: "The validation is not successful due to unexpected failure hence Mail sent to Automation team for further analysis"
+        do:
+          - send_email_for_failed_validation
+      - when: "{{ failed()}}"
+        publish:
+          - error_message: "Unable to update ITSM change request for {{ ctx().change_sys_id }}"
+          - worknotes: "The validation is not successful due to unexpected failure hence, Mail sent to Automation team for further analysis"
+        do:
+          - send_email_for_failed_validation
+
+
+  send_email_for_failed_validation:
+    action: ntt_itsm.send_email_TR_Automation
+    input:
+      receiver_emails: "Devanshu.bhanap@nttdata.com"
+      message_body: "The Reboot Validation for change {{ ctx().change_id }} on ci {{ ctx().ci_address }} has failed with the below reason: \n{{ ctx().worknotes }}"
+      subject: "The Reboot Validation for change {{ ctx().change_id }} on ci {{ ctx().ci_address }} has failed"
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - performance_rating: 3
+          - worknotes: "The Reboot Validation for change {{ ctx().change_id }} on ci {{ ctx().ci_address }} has failed with the below reason: \n{{ ctx().worknotes }}  \nRegards, \nAutomation"
+        do:
+          - get_and_close_change_tasks
+      - when: "{{ failed()}}"
+        publish:
+          - error_message: "Unable to update ITSM change request for {{ ctx().change_sys_id }}"
+          - performance_rating: 3
+          - worknotes: "Unable to update ITSM change request for {{ ctx().change_sys_id }}"
+        do:
+          - get_and_close_change_tasks
+
+  get_and_close_change_tasks:
+    action: ntt_itsm.ServiceNowGetAndCloseChangeTasks
+    input:
+      assigned_to: "{{ ctx().assigned_to }}"
+      performance_rating: "{{ ctx().performance_rating }}"
+      number: "{{ ctx().change_id }}"
+      assignment_group: "{{ ctx().assignment_group }}"
+      worknotes: "{{ ctx().worknotes }}"
+      u_test_results: "Successful"
+    next:
+     - when: "{{ succeeded() }}"
+       do:
+         - get_end_timestamp
+         - update_kv_var
+     - when: "{{ failed()}}"
+       publish:
+         - error_message: "Unable to update ITSM change request for {{ ctx().change_sys_id }}"
+       do:
+         - get_end_timestamp
+         - update_kv_var
+
+  get_end_timestamp:
+    action: core.noop
+    next:
+      - when: "{{ succeeded() }}"
+        publish:
+          - end_timestamp: "{{ task('get_and_close_change_tasks').end_timestamp }}"
+        do:
+          - insert_db
+      - when: "{{ failed() }}"
+        publish:
+          - end_timestamp: "{{ task('get_and_close_change_tasks').end_timestamp }}"
+          - run_error: true
+        do:
+          - insert_db
+
+  insert_db:
+    action: ntt_monitoring.sql_insert
+    input:
+      metric_data:
+        Description: "recurring_Reboot_validation"
+        Status: "Success"
+      process_data:
+        Account_Name: "{{ ctx().customer_name }}"
+        AM_Desc: "recurring_Reboot_validation"
+        AM_Status: "{{ 'Failure' if ctx().run_error else 'Success' }}"
+        Configuration_Item: "{{ ctx().ci_address }}"
+        ITSM_Name: "{{ ctx().itsm_tool_name }}"
+        Job_ID: ""
+        Module_Name: "recurring_Reboot_validation"
+        Ref_No: "{{ ctx().change_id }}"
+        Tower_Name: "Automox"
+        Assignment_Group: "{{ ctx().assignment_group }}"
+        Short_Desc: "{{ ctx().short_desc }}"
+        Detail_Desc: "{{ ctx().detailed_desc }}"
+      end_timestamp: "{{ ctx().end_timestamp }}"
+      start_timestamp: "{{ ctx().start_timestamp }}"
+      account_name: "{{ ctx().customer_name }}"
+      account_service: "{{ ctx().assignment_group }}"
+      incident_id: "{{ ctx().change_id }}"
+      configuration_item: "{{ ctx().ci_address }}"
+    next:
+      - when: "{{ succeeded() }}"
+        do:
+          - noop
+      - when: "{{ failed() }}"
+        publish:
+          - error_message: "There was an error inserting into the database. Please see the execution for details."
+        do:
+          - fail
+
+  update_kv_var:
+    action: ntt_itsm.itsm_processing_incs_remove
+    input:
+      inc_id: "{{ ctx().change_id }}"
+    next:
+      - when: "{{ succeeded() }}"
+        do:
+          - noop
+      - when: "{{ failed() }}"
+        do:
+          - fail

@@ -1,0 +1,17 @@
+---
+description: "Service Now Update Change"
+enabled: true
+runner_type: "python-script"
+entry_point: servicenow_change_update.py
+name: servicenow_change_update
+pack: ntt_itsm
+parameters:
+  chg_id:
+    type: string
+    description: "change number sys id"
+    required: true
+  worknotes:
+    type: string
+    description: "worknotes update string"
+    required: true
+    default: "Updating Worknotes of the change"

@@ -1,0 +1,49 @@
+---
+  class_name: 'servicenow_recurring_server_reboot_validation'
+  entry_point: 'servicenow_recurring_server_reboot_validation.py'
+  description: "Sensor to fetch recurring server reboot validation change requests"
+  poll_interval: 60
+  enabled: false
+  trigger_types:
+    -
+      name: "recurring_server_reboot_validation"
+      description: "If any change request is found for [TR - Automation] then perform recurring server reboot validation and update the change request"
+      payload_schema:
+        type: 'object'
+        properties:
+          assignment_group:
+            type: 'string'
+            format: 'Assignment group from SN to pass into the database entry'
+          ci_address:
+            type: 'string'
+            format: 'FQDN of the server'
+          os_type:
+            type: 'string'
+            format: 'OS type of the remote server'
+          configuration_item_name:
+            type: 'string'
+            format: 'Configuration item name'
+          configuration_item_env:
+            type: 'string'
+            format: 'Configuration item environment'
+          customer_name:
+            type: 'string'
+            format: 'Customer name from SN to pass into the database entry'
+          detailed_desc:
+            type: 'string'
+            format: 'Detailed description from SN to pass into the database entry'
+          change_id:
+            type: 'string'
+            format: 'Change Request number'
+          change_sys_id:
+            type: 'string'
+            format: 'Change request sys id'
+          short_desc:
+            type: 'string'
+            format: 'Short description details from SN to pass into the database entry'
+          planned_start_date:
+            type: 'string'
+            format: 'Planned start date from SN to pass into the database entry'
+          planned_end_date:
+            type: 'string'
+            format: 'Planned end date from SN to pass into the database entry'

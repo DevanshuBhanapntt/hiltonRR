@@ -1,0 +1,45 @@
+---
+
+description: "Create ServiceNow incident"
+enabled: true
+runner_type: "python-script"
+entry_point: servicenow_incident_create.py
+name: servicenow_incident_create
+pack: ntt_itsm
+parameters:
+  company:
+    type: string
+    description: "Company name"
+    required: true
+  requested_by:
+    type: string
+    description: "Name of user for which it is requested"
+    required: true
+  short_description:
+    type: string
+    description: "short description of ticket"
+    required: true
+  cmdb_ci:
+    type: string
+    description: "configuration item name"
+    required: true
+  category:
+    type: string
+    description: "Category for which ticket is created"
+    required: true
+  subcategory:
+    type: string
+    description: "Subcategory for which ticket is created"
+    required: true
+  assignment_group:
+    type: string
+    description: "assignment group for ticket"
+    required: true
+  impact:
+    type: string
+    description: "impact of ticket"
+    required: false
+  description:
+    type: string
+    description: "description of ticket"
+    required: false

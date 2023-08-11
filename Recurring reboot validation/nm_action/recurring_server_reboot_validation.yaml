@@ -1,0 +1,61 @@
+---
+name: "recurring_server_reboot_validation"
+pack: ntt_monitoring
+description: "Recurring server reboot validation workflow"
+runner_type: orquesta
+entry_point: workflows/recurring_server_reboot_validation.yaml
+enabled: true
+parameters:
+  assignment_group:
+    type: string
+    description: 'Assignment group of change request'
+    required: true
+  ci_address:
+    type: string
+    description: 'FQDN of the server in change request'
+    required: true
+  os_type:
+    type: string
+    description: "Os type of the remote server (Windows or linux)"
+    required: true
+  configuration_item_name:
+    type: string
+    description: 'Configuration item name of change request'
+    required: true
+  configuration_item_env:
+    type: string
+    description: 'Configuration item environment of change request'
+    required: true
+  customer_name:
+    type: string
+    description: 'Customer name of the change request'
+    required: true
+  customer_abbr:
+    type: string
+    description: "Customer abbreviation of the customer name"
+    required: false
+    default: "{{ st2kv.system.customer_abbr }}"
+  detailed_desc:
+    type: string
+    description: 'Detailed description of the change request'
+    required: true
+  change_id:
+    type: string
+    description: 'Change Request number'
+    required: true
+  change_sys_id:
+    type: string
+    description: 'Change request sys id'
+    required: true
+  short_desc:
+    type: string
+    description: 'Short description of the change request'
+    required: true
+  planned_start_date:
+    type: string
+    description: 'Planned start date of the change request'
+    required: true
+  planned_end_date:
+    type: string
+    description: 'Planned end date of the change request'
+    required: true

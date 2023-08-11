@@ -1,0 +1,27 @@
+---
+  name: 'recurring_server_reboot_validation'
+  pack: 'ntt_itsm'
+  description: 'Rule for recurring server reboot validation'
+  enabled: true
+
+  trigger:
+    type: "ntt_itsm.recurring_server_reboot_validation"
+    parameters: {}
+
+
+  action:
+    ref: 'ntt_monitoring.recurring_server_reboot_validation'
+    parameters:
+      assignment_group: "{{ trigger.assignment_group }}"
+      ci_address: "{{ trigger.ci_address }}"
+      os_type: "{{ trigger.os_type }}"
+      customer_name: "{{ trigger.customer_name }}"
+      configuration_item_name: "{{ trigger.configuration_item_name }}"
+      configuration_item_env: "{{ trigger.configuration_item_env }}"
+      short_desc: "{{ trigger.short_desc }}"
+      detailed_desc: "{{ trigger.detailed_desc }}"
+      change_id: "{{ trigger.change_id }}"
+      change_sys_id: "{{ trigger.change_sys_id }}"
+      planned_start_date: "{{ trigger.planned_start_date }}"
+      planned_end_date: "{{ trigger.planned_end_date }}"
+
